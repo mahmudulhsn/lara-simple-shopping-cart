@@ -1,0 +1,28 @@
+{
+  "name": "mahmudulhsn/lara-simple-shopping-cart",
+  "description": "This is Laravel simple shopping cart package.",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Mahmudulhsn\\LaraSimpleShoppingCart\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "M H Hasib",
+      "email": "hasib.mahmudul@gmail.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "php": "^8.2"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Mahmudulhsn\\LaraSimpleShoppingCart\\SimpleShoppingCartServiceProvider"
+      ]
+    }
+  }
+}
