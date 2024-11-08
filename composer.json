@@ -16,7 +16,9 @@
   ],
   "minimum-stability": "dev",
   "require": {
-    "php": "^8.2"
+    "php": "^8.0",
+    "symfony/http-foundation": ">=7.1.7",
+    "symfony/process": ">=7.1.7"
   },
   "extra": {
     "laravel": {
