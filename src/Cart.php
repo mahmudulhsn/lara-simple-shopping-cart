@@ -7,11 +7,19 @@ use Illuminate\Support\Collection;
 class Cart
 {
     /**
-     * add product to cart
+     * Add product to cart.
+     *
+     * @param string $id
+     * @param string $name
+     * @param float $price
+     * @param int|float $quantity
+     * @param array $extraInfo
+     * @return object
      */
-    public static function add(string $id, string $name, float $price, int|float $quantity, array $extraInfo = []): object
+    public static function add(string $id, string $name, float $price, $quantity, array $extraInfo = []): object
     {
-        $rowId = CartHelper::generateRowId(id: $id, productDetails: [$id, $name, $price, $quantity]);
+        // Replace named arguments with positional arguments
+        $rowId = CartHelper::generateRowId($id, [$id, $name, $price, $quantity]);
 
         if (!session()->has('cart')) {
             session()->put('cart', [
@@ -33,7 +41,7 @@ class Cart
             'sub_total' => $quantity * $price,
         ];
 
-        if ($extraInfo !== []) {
+        if (!empty($extraInfo)) {
             $products[$rowId]['extraInfo'] = $extraInfo;
         }
         session()->put('cart.products', $products);
@@ -45,7 +53,10 @@ class Cart
     }
 
     /**
-     * return single product details by row id
+     * Return single product details by row ID.
+     *
+     * @param string $rowId
+     * @return object|null
      */
     public static function get(string $rowId): ?object
     {
@@ -55,12 +66,17 @@ class Cart
     }
 
     /**
-     * update the cart item by row id
+     * Update the cart item by row ID.
+     *
+     * @param string $rowId
+     * @param array $productData
+     * @return object
+     * @throws \Exception
      */
     public static function update(string $rowId, array $productData): object
     {
         $products = session()->get('cart.products', []);
-        if (\array_key_exists($rowId, $products)) {
+        if (array_key_exists($rowId, $products)) {
             $quantity = $productData['quantity'] ?? $products[$rowId]['quantity'];
             $price = $productData['price'] ?? $products[$rowId]['price'];
 
@@ -68,8 +84,8 @@ class Cart
             $products[$rowId]['quantity'] = $quantity;
             $products[$rowId]['sub_total'] = $quantity * $price;
 
-            if (isset($productData['quantity']) && $productData['quantity'] !== []) {
-                $products[$rowId]['extraInfo'] = $productData['quantity'];
+            if (isset($productData['extraInfo']) && !empty($productData['extraInfo'])) {
+                $products[$rowId]['extraInfo'] = $productData['extraInfo'];
             }
 
             session()->put('cart.products', $products);
@@ -83,15 +99,15 @@ class Cart
     }
 
     /**
-     * remove item form cart by item id
+     * Remove item from cart by item ID.
      *
+     * @param string $rowId
      * @throws \Exception
      */
     public static function remove(string $rowId): void
     {
         $products = session()->get('cart.products', []);
-        if (\array_key_exists($rowId, $products)) {
-
+        if (array_key_exists($rowId, $products)) {
             unset($products[$rowId]);
             session()->put('cart.products', $products);
 
@@ -103,7 +119,7 @@ class Cart
     }
 
     /**
-     * clear the cart
+     * Clear the cart.
      */
     public static function destroy(): void
     {
@@ -112,21 +128,23 @@ class Cart
     }
 
     /**
-     * return the total of the cart
+     * Return the total of the cart.
+     *
      * @return int|float
      */
-    public static function total(): int|float
+    public static function total()
     {
         return session()->get('cart.total', 0);
     }
 
     /**
-     * return the content of the cart
-     * @return \Illuminate\Database\Eloquent\Collection
+     * Return the content of the cart.
+     *
+     * @return \Illuminate\Support\Collection
      */
     public static function content(): Collection
     {
-        $products = session()->get('cart.products');
+        $products = session()->get('cart.products', []);
         return collect($products);
     }
 }
