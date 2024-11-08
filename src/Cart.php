@@ -6,15 +6,11 @@ class Cart
 {
     /**
      * add product to cart
-     * @param array $productData
-     * @param array $option
-     * @return void
      */
     public static function add(array $productData, array $extraInfo = []): void
     {
         $rowId = self::generateRowId(id: $productData['id'], productDetails: $productData);
 
-        // Initialize cart if it doesn't exist
         if (!session()->has('cart')) {
             session()->put('cart', [
                 'products' => [],
@@ -22,13 +18,10 @@ class Cart
             ]);
         }
 
-        // Ensure product quantity is at least 1
         $productData['quantity'] = $productData['quantity'] < 1 ? 1 : $productData['quantity'];
 
-        // Retrieve current products in the cart
         $products = session()->get('cart.products', []);
 
-        // Add or update product in the cart
         $products[$rowId] = [
             'id' => $productData['id'],
             'name' => $productData['name'],
@@ -37,24 +30,16 @@ class Cart
             'sub_total' => $productData['quantity'] * $productData['price'],
             'extraInfo' => $extraInfo,
         ];
-
-        // Save the updated products in session
         session()->put('cart.products', $products);
 
-        // Recalculate the total
         $cartTotal = array_sum(array_column($products, 'sub_total'));
-
-        // Update the cart total in session
         session()->put('cart.total', $cartTotal);
-
     }
 
     /**
      * return single product details by row id
-     * @param string $rowId
-     * @return object|null
      */
-    public static function get(string $rowId): object|null
+    public static function get(string $rowId): ?object
     {
         $products = session()->get('cart.products', []);
 
@@ -63,33 +48,20 @@ class Cart
 
     /**
      * update the cart item by row id
-     * @param string $rowId
-     * @param array $productData
-     * @return string
      */
     public static function update(string $rowId, array $productData): void
     {
-        // Retrieve current products in the cart
         $products = session()->get('cart.products', []);
-
-        // Check if the product exists in the cart
         if (\array_key_exists($rowId, $products)) {
-            // Update the quantity and price from the provided data or use current values
             $quantity = $productData['quantity'] ?? $products[$rowId]['quantity'];
             $price = $productData['price'] ?? $products[$rowId]['price'];
 
-            // Update product details
             $products[$rowId]['price'] = $price;
             $products[$rowId]['quantity'] = $quantity;
             $products[$rowId]['sub_total'] = $quantity * $price;
 
-            // Save the updated products in session
             session()->put('cart.products', $products);
-
-            // Recalculate the total
             $cartTotal = array_sum(array_column($products, 'sub_total'));
-
-            // Update the cart total in session
             session()->put('cart.total', $cartTotal);
         } else {
             throw new \Exception("Product with row ID {$rowId} not found in cart.");
@@ -97,17 +69,40 @@ class Cart
     }
 
     /**
-     * Generate a unique id for the cart item.
+     * remove item form cart by item id
      *
-     * @param string $id
-     * @param array  $productDetails
-     * @return string
+     * @throws \Exception
      */
-    public static function generateRowId($id, array $productDetails): string
+    public static function remove(string $rowId): void
     {
-        ksort($productDetails);
+        $products = session()->get('cart.products', []);
+        if (\array_key_exists($rowId, $products)) {
 
-        return md5($id . serialize($productDetails));
+            unset($products[$rowId]);
+            session()->put('cart.products', $products);
+
+            $cartTotal = array_sum(array_column($products, 'sub_total'));
+            session()->put('cart.total', $cartTotal);
+        } else {
+            throw new \Exception("Product with row ID {$rowId} not found in cart.");
+        }
     }
 
+    /**
+     * clear the cart
+     */
+    public static function clear(): void
+    {
+        session()->put('cart.products', []);
+        session()->put('cart.total', 0);
+    }
+
+    /**
+     * Generate a unique id for the cart item.
+     */
+    public static function generateRowId(string $id, array $productDetails): string
+    {
+        ksort($productDetails);
+        return md5($id . serialize($productDetails));
+    }
 }

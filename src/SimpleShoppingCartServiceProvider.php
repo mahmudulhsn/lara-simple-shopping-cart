@@ -19,6 +19,6 @@ class SimpleShoppingCartServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->publishes([__DIR__ . "/../config/lara_simple_shopping_cart.php" => config_path("lara_simple_shopping_cart.php")], "lara-simple-shopping-cart-config");
+        $this->publishes([__DIR__.'/../config/lara_simple_shopping_cart.php' => config_path('lara_simple_shopping_cart.php')], 'lara-simple-shopping-cart-config');
     }
 }

@@ -11,7 +11,7 @@ return [
         |
         */
 
-    'tax' => 21,
+    'tax' => 15,
 
     /*
     |--------------------------------------------------------------------------
@@ -24,11 +24,8 @@ return [
     */
 
     'database' => [
-
         'connection' => null,
-
         'table' => 'lara_simple_shopping_cart',
-
     ],
 
     /*
@@ -42,5 +39,16 @@ return [
     */
 
     'destroy_on_logout' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | LaraSimpleShoppingCart storage settings
+    |--------------------------------------------------------------------------
+    |
+    | Here you can set the storage type whether it will store in session or database
+    | Type would be form: session, database
+    |
+    */
+    'storage_type' => 'session'
 
 ];
