@@ -2,14 +2,16 @@
 
 namespace Mahmudulhsn\LaraSimpleShoppingCart;
 
+use Illuminate\Support\Collection;
+
 class Cart
 {
     /**
      * add product to cart
      */
-    public static function add(array $productData, array $extraInfo = []): void
+    public static function add(string $id, string $name, float $price, int|float $quantity, array $extraInfo = []): object
     {
-        $rowId = self::generateRowId(id: $productData['id'], productDetails: $productData);
+        $rowId = CartHelper::generateRowId(id: $id, productDetails: [$id, $name, $price, $quantity]);
 
         if (!session()->has('cart')) {
             session()->put('cart', [
@@ -18,22 +20,28 @@ class Cart
             ]);
         }
 
-        $productData['quantity'] = $productData['quantity'] < 1 ? 1 : $productData['quantity'];
+        $quantity = $quantity < 1 ? 1 : $quantity;
 
         $products = session()->get('cart.products', []);
 
         $products[$rowId] = [
-            'id' => $productData['id'],
-            'name' => $productData['name'],
-            'price' => $productData['price'],
-            'quantity' => $productData['quantity'],
-            'sub_total' => $productData['quantity'] * $productData['price'],
-            'extraInfo' => $extraInfo,
+            'rowId' => $rowId,
+            'id' => $id,
+            'name' => $name,
+            'price' => $price,
+            'quantity' => $quantity,
+            'sub_total' => $quantity * $price,
         ];
+
+        if ($extraInfo !== []) {
+            $products[$rowId]['extraInfo'] = $extraInfo;
+        }
         session()->put('cart.products', $products);
 
         $cartTotal = array_sum(array_column($products, 'sub_total'));
         session()->put('cart.total', $cartTotal);
+
+        return self::get($rowId);
     }
 
     /**
@@ -49,7 +57,7 @@ class Cart
     /**
      * update the cart item by row id
      */
-    public static function update(string $rowId, array $productData): void
+    public static function update(string $rowId, array $productData): object
     {
         $products = session()->get('cart.products', []);
         if (\array_key_exists($rowId, $products)) {
@@ -60,9 +68,15 @@ class Cart
             $products[$rowId]['quantity'] = $quantity;
             $products[$rowId]['sub_total'] = $quantity * $price;
 
+            if (isset($productData['quantity']) && $productData['quantity'] !== []) {
+                $products[$rowId]['extraInfo'] = $productData['quantity'];
+            }
+
             session()->put('cart.products', $products);
             $cartTotal = array_sum(array_column($products, 'sub_total'));
             session()->put('cart.total', $cartTotal);
+
+            return self::get($rowId);
         } else {
             throw new \Exception("Product with row ID {$rowId} not found in cart.");
         }
@@ -91,18 +105,28 @@ class Cart
     /**
      * clear the cart
      */
-    public static function clear(): void
+    public static function destroy(): void
     {
         session()->put('cart.products', []);
         session()->put('cart.total', 0);
     }
 
     /**
-     * Generate a unique id for the cart item.
+     * return the total of the cart
+     * @return int|float
      */
-    public static function generateRowId(string $id, array $productDetails): string
+    public static function total(): int|float
     {
-        ksort($productDetails);
-        return md5($id . serialize($productDetails));
+        return session()->get('cart.total', 0);
+    }
+
+    /**
+     * return the content of the cart
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function content(): Collection
+    {
+        $products = session()->get('cart.products');
+        return collect($products);
     }
 }
