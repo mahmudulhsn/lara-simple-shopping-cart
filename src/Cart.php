@@ -3,34 +3,47 @@
 namespace Mahmudulhsn\LaraSimpleShoppingCart;
 
 use Illuminate\Support\Collection;
+use Mahmudulhsn\LaraSimpleShoppingCart\CartHelper;
 
 class Cart
 {
     /**
+     * @var string Root session key for storing cart data.
+     */
+    protected string $rootSessionKey;
+
+    /**
+     * @var CartHelper Helper class for cart operations.
+     */
+    protected CartHelper $cartHelper;
+
+    /**
+     * Cart constructor.
+     *
+     * @param string $rootSessionKey Root session key.
+     * @param CartHelper $cartHelper Instance of CartHelper.
+     */
+    public function __construct(string $rootSessionKey, CartHelper $cartHelper)
+    {
+        $this->rootSessionKey = $rootSessionKey;
+        $this->cartHelper = $cartHelper;
+    }
+
+    /**
      * Add product to cart.
      *
-     * @param string $id
-     * @param string $name
-     * @param float $price
-     * @param int|float $quantity
-     * @param array $extraInfo
-     * @return object
+     * @param string $id Product ID.
+     * @param string $name Product name.
+     * @param float $price Product price.
+     * @param int|float $quantity Product quantity.
+     * @param array $extraInfo Additional product info.
+     * @return object Added product as an object.
      */
-    public static function add(string $id, string $name, float $price, $quantity, array $extraInfo = []): object
+    public function add(string $id, string $name, float $price, int|float $quantity, array $extraInfo = []): object
     {
-        // Replace named arguments with positional arguments
-        $rowId = CartHelper::generateRowId($id, [$id, $name, $price, $quantity]);
-
-        if (!session()->has('cart')) {
-            session()->put('cart', [
-                'products' => [],
-                'total' => 0,
-            ]);
-        }
-
-        $quantity = $quantity < 1 ? 1 : $quantity;
-
-        $products = session()->get('cart.products', []);
+        $rowId = $this->cartHelper->generateRowId($id, [$id, $name, $price, $quantity]);
+        $quantity = max(1, $quantity); // Ensure quantity is at least 1
+        $products = session()->get("{$this->rootSessionKey}.products", []);
 
         $products[$rowId] = [
             'rowId' => $rowId,
@@ -38,81 +51,76 @@ class Cart
             'name' => $name,
             'price' => $price,
             'quantity' => $quantity,
-            'sub_total' => $quantity * $price,
+            'subtotal' => $quantity * $price,
         ];
 
         if (!empty($extraInfo)) {
             $products[$rowId]['extraInfo'] = $extraInfo;
         }
-        session()->put('cart.products', $products);
 
-        $cartTotal = array_sum(array_column($products, 'sub_total'));
-        session()->put('cart.total', $cartTotal);
+        session()->put("{$this->rootSessionKey}.products", $products);
+        $this->cartHelper->updateTotal($this->rootSessionKey);
 
-        return self::get($rowId);
+        return $this->get($rowId);
     }
 
     /**
-     * Return single product details by row ID.
+     * Get single product details by row ID.
      *
-     * @param string $rowId
-     * @return object|null
+     * @param string $rowId Row ID of the product.
+     * @return object|null Product as an object or null if not found.
      */
-    public static function get(string $rowId): ?object
+    public function get(string $rowId): ?object
     {
-        $products = session()->get('cart.products', []);
-
+        $products = session()->get("{$this->rootSessionKey}.products", []);
         return isset($products[$rowId]) ? (object) $products[$rowId] : null;
     }
 
     /**
-     * Update the cart item by row ID.
+     * Update cart item by row ID.
      *
-     * @param string $rowId
-     * @param array $productData
-     * @return object
-     * @throws \Exception
+     * @param string $rowId Row ID of the product.
+     * @param array $productData Data to update (quantity, price, extraInfo).
+     * @return object Updated product as an object.
+     * @throws \Exception If product is not found in cart.
      */
-    public static function update(string $rowId, array $productData): object
+    public function update(string $rowId, array $productData): object
     {
-        $products = session()->get('cart.products', []);
+        $products = session()->get("{$this->rootSessionKey}.products", []);
         if (array_key_exists($rowId, $products)) {
             $quantity = $productData['quantity'] ?? $products[$rowId]['quantity'];
             $price = $productData['price'] ?? $products[$rowId]['price'];
 
             $products[$rowId]['price'] = $price;
             $products[$rowId]['quantity'] = $quantity;
-            $products[$rowId]['sub_total'] = $quantity * $price;
+            $products[$rowId]['subtotal'] = $quantity * $price;
 
             if (isset($productData['extraInfo']) && !empty($productData['extraInfo'])) {
                 $products[$rowId]['extraInfo'] = $productData['extraInfo'];
             }
 
-            session()->put('cart.products', $products);
-            $cartTotal = array_sum(array_column($products, 'sub_total'));
-            session()->put('cart.total', $cartTotal);
+            session()->put("{$this->rootSessionKey}.products", $products);
+            $this->cartHelper->updateTotal($this->rootSessionKey);
 
-            return self::get($rowId);
-        } else {
-            throw new \Exception("Product with row ID {$rowId} not found in cart.");
+            return $this->get($rowId);
         }
+
+        throw new \Exception("Product with row ID {$rowId} not found in cart.");
     }
 
     /**
-     * Remove item from cart by item ID.
+     * Remove item from cart by row ID.
      *
-     * @param string $rowId
-     * @throws \Exception
+     * @param string $rowId Row ID of the product to remove.
+     * @throws \Exception If product is not found in cart.
      */
-    public static function remove(string $rowId): void
+    public function remove(string $rowId): void
     {
-        $products = session()->get('cart.products', []);
+        $products = session()->get("{$this->rootSessionKey}.products", []);
         if (array_key_exists($rowId, $products)) {
             unset($products[$rowId]);
-            session()->put('cart.products', $products);
-
-            $cartTotal = array_sum(array_column($products, 'sub_total'));
-            session()->put('cart.total', $cartTotal);
+            session()->put("{$this->rootSessionKey}.products", $products);
+            $this->cartHelper->updateTotal($this->rootSessionKey);
         } else {
             throw new \Exception("Product with row ID {$rowId} not found in cart.");
         }
@@ -121,30 +129,63 @@ class Cart
     /**
      * Clear the cart.
      */
-    public static function destroy(): void
+    public function destroy(): void
     {
-        session()->put('cart.products', []);
-        session()->put('cart.total', 0);
+        session()->put("{$this->rootSessionKey}.products", []);
+        session()->put("{$this->rootSessionKey}.total", 0);
+        session()->put("{$this->rootSessionKey}.subtotal", 0);
+        session()->put("{$this->rootSessionKey}.discount", 0);
     }
 
     /**
-     * Return the total of the cart.
+     * Get total of the cart.
      *
-     * @return int|float
+     * @return int|float Total amount of the cart.
      */
-    public static function total()
+    public function total(): int|float
     {
-        return session()->get('cart.total', 0);
+        return session()->get("{$this->rootSessionKey}.total", 0);
     }
 
     /**
-     * Return the content of the cart.
+     * Get subtotal of the cart.
      *
-     * @return \Illuminate\Support\Collection
+     * @return int|float Subtotal amount of the cart.
      */
-    public static function content(): Collection
+    public function subtotal(): int|float
     {
-        $products = session()->get('cart.products', []);
+        return session()->get("{$this->rootSessionKey}.subtotal", 0);
+    }
+
+    /**
+     * Get discount applied to the cart.
+     *
+     * @return int|float Discount amount applied to the cart.
+     */
+    public function discountTotal(): int|float
+    {
+        return session()->get("{$this->rootSessionKey}.discount", 0);
+    }
+
+    /**
+     * Get all products in the cart.
+     *
+     * @return \Illuminate\Support\Collection Collection of products.
+     */
+    public function content(): Collection
+    {
+        $products = session()->get("{$this->rootSessionKey}.products", []);
         return collect($products);
+    }
+
+    /**
+     * Apply discount to the entire cart.
+     *
+     * @param int|float $amount Discount amount to apply.
+     * @param string|null $discountType Type of discount (e.g., 'fix' or 'percentage').
+     */
+    public function applyDiscount(int|float $amount, ?string $discountType = 'fix'): void
+    {
+        $this->cartHelper->updateDiscount($this->rootSessionKey, $amount, $discountType);
     }
 }
